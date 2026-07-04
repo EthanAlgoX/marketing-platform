@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { OrganizationMemberStatus, OrganizationRole } from "../../../packages/database/src";
+import { OrganizationMemberStatus, OrganizationRole } from "../../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
 import { assertOrganizationManager } from "../common/organization-access";
 import { CreateOrganizationDto } from "./organizations.dto";

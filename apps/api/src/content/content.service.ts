@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { ContentType, Platform } from "../../../packages/database/src";
+import { ContentType, type Prisma, Platform } from "../../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   CreateContentItemDto,
@@ -12,7 +12,7 @@ import { assertActiveOrganizationMember, listActorOrganizationIds } from "../com
 export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateContentItemDto & { actorUserId: string }) {
+  async create(dto: CreateContentItemDto & { actorUserId: string }) {
     const {
       organizationId,
       title,
@@ -55,19 +55,22 @@ export class ContentService {
       throw new HttpException("actorUserId is required", HttpStatus.BAD_REQUEST);
     }
 
+    const membershipOrganizationIds = await listActorOrganizationIds(this.prisma, actorUserId);
+    if (membershipOrganizationIds.length === 0) {
+      return [];
+    }
+
     if (organizationId) {
-      await this.assertMembership(organizationId, actorUserId);
-    } else {
-        const membershipOrganizationIds = await listActorOrganizationIds(this.prisma, actorUserId);
-        if (membershipOrganizationIds.length === 0) {
-          return [];
-        }
+      await assertActiveOrganizationMember(this.prisma, organizationId, actorUserId);
+      if (!membershipOrganizationIds.includes(organizationId)) {
+        throw new HttpException("acting user is not an active member of organization", HttpStatus.FORBIDDEN);
+      }
     }
 
     return this.prisma.contentItem.findMany({
       where: organizationId
         ? { organizationId }
-        : { organizationId: { in: await listActorOrganizationIds(this.prisma, actorUserId) } },
+        : { organizationId: { in: membershipOrganizationIds } },
       orderBy: { createdAt: "desc" },
       include: {
         versions: {
@@ -176,9 +179,9 @@ export class ContentService {
         contentType,
         title: title ?? null,
         body: body ?? null,
-        tags: tags ?? null,
-        topics: topics ?? null,
-        settings: settings ?? null,
+        tags: tags === undefined ? undefined : (tags as Prisma.InputJsonValue),
+        topics: topics === undefined ? undefined : (topics as Prisma.InputJsonValue),
+        settings: settings === undefined ? undefined : (settings as Prisma.InputJsonValue),
         aiGenerated: false,
         editedBy,
       },

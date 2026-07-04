@@ -1,4 +1,4 @@
-import { ContentItemStatus, Platform, ContentType } from "../../../packages/database/src";
+import { ContentItemStatus, Platform, ContentType } from "../../../../packages/database/src";
 
 export interface CreateContentItemDto {
   organizationId: string;

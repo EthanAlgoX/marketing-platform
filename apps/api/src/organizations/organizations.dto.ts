@@ -1,4 +1,4 @@
-import { OrganizationRole } from "../../../packages/database/src";
+import { OrganizationRole } from "../../../../packages/database/src";
 
 export interface CreateOrganizationDto {
   name: string;

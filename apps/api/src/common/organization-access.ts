@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus } from "@nestjs/common";
-import { OrganizationMemberStatus, OrganizationRole, PrismaClient } from "../../../packages/database/src";
+import { OrganizationMemberStatus, OrganizationRole, PrismaClient } from "../../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
 
 export interface MembershipResult {

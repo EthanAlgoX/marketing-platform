@@ -5,7 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
-import { OrganizationRole } from "../../../packages/database/src";
+import { OrganizationRole } from "../../../../packages/database/src";
 
 export const USER_ID_HEADER = "x-user-id";
 
