@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Post } from "@nestjs/common";
+import { USER_ID_HEADER, resolveUserId } from "../common/access";
 import { AddMemberDto, CreateOrganizationDto } from "./organizations.dto";
 import { OrganizationsService } from "./organizations.service";
 
@@ -17,11 +18,22 @@ export class OrganizationsController {
   }
 
   @Post(":organizationId/members")
-  addMember(@Param("organizationId") organizationId: string, @Body() body: AddMemberDto) {
+  addMember(
+    @Param("organizationId") organizationId: string,
+    @Headers(USER_ID_HEADER) actingUserId: string,
+    @Body() body: AddMemberDto,
+  ) {
+    const user = resolveUserId(actingUserId);
+
     return this.organizationsService.addMember({
+      actingUserId: user.userId,
       organizationId,
-      userId: body.userId,
-      role: body.role,
+      ...body,
     });
+  }
+
+  @Get(":organizationId/members")
+  members(@Param("organizationId") organizationId: string) {
+    return this.organizationsService.members(organizationId);
   }
 }

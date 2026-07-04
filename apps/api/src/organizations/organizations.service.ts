@@ -1,6 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { OrganizationRole } from "../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
+import { canManageOrganizationMembers } from "../common/access";
 import { CreateOrganizationDto } from "./organizations.dto";
 
 @Injectable()
@@ -64,13 +65,32 @@ export class OrganizationsService {
 
   async addMember({
     organizationId,
+    actingUserId,
     userId,
     role,
   }: {
     organizationId: string;
+    actingUserId: string;
     userId: string;
     role?: OrganizationRole;
   }) {
+    const member = await this.prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId: actingUserId,
+        },
+      },
+    });
+
+    if (!member) {
+      throw new HttpException("acting user not member of organization", HttpStatus.NOT_FOUND);
+    }
+
+    if (!canManageOrganizationMembers(member.role)) {
+      throw new HttpException("insufficient permissions", HttpStatus.FORBIDDEN);
+    }
+
     return this.prisma.organizationMember.create({
       data: {
         organizationId,
@@ -78,6 +98,22 @@ export class OrganizationsService {
         role: role ?? OrganizationRole.member,
       },
       include: { user: true, organization: true },
+    });
+  }
+
+  members(organizationId: string) {
+    return this.prisma.organizationMember.findMany({
+      where: { organizationId, status: "active" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
     });
   }
 
