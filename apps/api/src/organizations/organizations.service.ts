@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { OrganizationMemberStatus, OrganizationRole } from "../../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
 import { assertOrganizationManager } from "../common/organization-access";
@@ -75,6 +75,40 @@ export class OrganizationsService {
     role?: OrganizationRole;
   }) {
     await assertOrganizationManager(this.prisma, organizationId, actingUserId);
+
+    const organization = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } });
+    if (!organization) {
+      throw new NotFoundException("organization not found");
+    }
+
+    const targetUser = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!targetUser) {
+      throw new NotFoundException("user not found");
+    }
+
+    const existed = await this.prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId,
+        },
+      },
+    });
+
+    if (existed) {
+      if (existed.status === OrganizationMemberStatus.active) {
+        throw new ConflictException("user is already an active member of organization");
+      }
+
+      return this.prisma.organizationMember.update({
+        where: { id: existed.id },
+        data: {
+          role: role ?? existed.role,
+          status: OrganizationMemberStatus.active,
+        },
+        include: { user: true, organization: true },
+      });
+    }
 
     return this.prisma.organizationMember.create({
       data: {
