@@ -1,0 +1,20 @@
+{
+  "name": "marketing-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.6.1",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @marketing-platform/web --filter @marketing-platform/api --filter @marketing-platform/worker dev",
+    "dev:web": "pnpm --filter @marketing-platform/web dev",
+    "dev:api": "pnpm --filter @marketing-platform/api dev",
+    "dev:worker": "pnpm --filter @marketing-platform/worker dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @marketing-platform/database prisma:generate",
+    "db:migrate": "pnpm --filter @marketing-platform/database prisma:migrate"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

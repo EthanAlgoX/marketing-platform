@@ -1,0 +1,498 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationRole {
+  owner
+  admin
+  member
+}
+
+enum OrganizationMemberStatus {
+  active
+  invited
+  disabled
+}
+
+enum ContentItemStatus {
+  draft
+  ready
+  scheduled
+  published
+  archived
+}
+
+enum Platform {
+  xiaohongshu
+  zhihu
+  wechat_official_account
+  x_twitter
+}
+
+enum ContentType {
+  original
+  note
+  article
+  answer
+  idea
+  wechat_article
+  tweet
+  thread
+}
+
+enum AssetType {
+  image
+  video
+  file
+}
+
+enum PlatformAccessType {
+  official_api
+  draft_api
+  browser_assist
+  manual
+}
+
+enum PlatformAuthStatus {
+  active
+  unauthorized
+  disabled
+  limited
+  deleted
+}
+
+enum PublishTaskStatus {
+  draft
+  scheduled
+  processing
+  partial_success
+  success
+  failed
+  canceled
+}
+
+enum PublishTargetStatus {
+  pending
+  scheduled
+  processing
+  draft_created
+  manual_required
+  manual_in_progress
+  success
+  failed
+  skipped
+  canceled
+}
+
+enum PublishErrorType {
+  validation_error
+  unauthorized
+  rate_limited
+  provider_error
+  network_error
+  manual_required
+  unknown
+}
+
+enum MetricSource {
+  manual
+  api
+}
+
+enum AiJobStatus {
+  pending
+  processing
+  success
+  failed
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String?
+  passwordHash String   @map("password_hash")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  memberships    OrganizationMember[]
+  contentItems   ContentItem[]            @relation("ContentItemCreatedBy")
+  editedVersions ContentVersion[]         @relation("ContentVersionEditedBy")
+  mediaAssets    MediaAsset[]             @relation("MediaUploadedBy")
+  publishTasks   PublishTask[]            @relation("PublishTaskCreatedBy")
+  aiLogs         AiGenerationLog[]        @relation("AiGenerationCreatedBy")
+  revisions      ContentVersionRevision[]
+
+  @@map("users")
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members          OrganizationMember[]
+  contentItems     ContentItem[]
+  mediaAssets      MediaAsset[]
+  platformAccounts PlatformAccount[]
+  publishTasks     PublishTask[]
+  aiLogs           AiGenerationLog[]
+
+  @@index([name])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String                   @id @default(uuid())
+  organizationId String                   @map("organization_id")
+  userId         String                   @map("user_id")
+  role           OrganizationRole
+  status         OrganizationMemberStatus @default(active)
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@index([organizationId, role])
+  @@map("organization_members")
+}
+
+model ContentItem {
+  id             String            @id @default(uuid())
+  organizationId String            @map("organization_id")
+  createdBy      String            @map("created_by")
+  title          String
+  sourceContent  String?           @map("source_content") @db.Text
+  productInfo    String?           @map("product_info") @db.Text
+  targetAudience String?           @map("target_audience") @db.Text
+  marketingGoal  String?           @map("marketing_goal") @db.Text
+  status         ContentItemStatus @default(draft)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  deletedAt      DateTime?         @map("deleted_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User              @relation("ContentItemCreatedBy", fields: [createdBy], references: [id])
+  versions     ContentVersion[]
+  publishTasks PublishTask[]
+  aiLogs       AiGenerationLog[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@index([createdBy, createdAt])
+  @@index([deletedAt])
+  @@map("content_items")
+}
+
+model ContentVersion {
+  id            String      @id @default(uuid())
+  contentItemId String      @map("content_item_id")
+  platform      Platform
+  contentType   ContentType @map("content_type")
+  title         String?
+  body          String?     @db.Text
+  tags          Json?
+  topics        Json?
+  settings      Json?
+  aiGenerated   Boolean     @default(false) @map("ai_generated")
+  editedBy      String?     @map("edited_by")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  deletedAt     DateTime?   @map("deleted_at")
+
+  contentItem    ContentItem              @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  editor         User?                    @relation("ContentVersionEditedBy", fields: [editedBy], references: [id])
+  revisions      ContentVersionRevision[]
+  media          ContentVersionMedia[]
+  publishTargets PublishTarget[]
+  aiLogs         AiGenerationLog[]
+
+  @@index([contentItemId, platform])
+  @@index([contentItemId, platform, contentType])
+  @@index([editedBy, updatedAt])
+  @@index([deletedAt])
+  @@map("content_versions")
+}
+
+model ContentVersionRevision {
+  id               String   @id @default(uuid())
+  contentVersionId String   @map("content_version_id")
+  snapshot         Json
+  changedBy        String?  @map("changed_by")
+  changeReason     String?  @map("change_reason")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  contentVersion ContentVersion @relation(fields: [contentVersionId], references: [id], onDelete: Cascade)
+  changedByUser  User?          @relation(fields: [changedBy], references: [id])
+
+  @@index([contentVersionId, createdAt])
+  @@index([changedBy, createdAt])
+  @@map("content_version_revisions")
+}
+
+model MediaAsset {
+  id             String    @id @default(uuid())
+  organizationId String    @map("organization_id")
+  uploadedBy     String    @map("uploaded_by")
+  name           String
+  originalName   String    @map("original_name")
+  mimeType       String    @map("mime_type")
+  assetType      AssetType @map("asset_type")
+  path           String
+  thumbnailPath  String?   @map("thumbnail_path")
+  size           Int
+  metadata       Json?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploader        User                  @relation("MediaUploadedBy", fields: [uploadedBy], references: [id])
+  contentVersions ContentVersionMedia[]
+
+  @@index([organizationId, createdAt])
+  @@index([uploadedBy, createdAt])
+  @@index([organizationId, assetType])
+  @@index([deletedAt])
+  @@map("media_assets")
+}
+
+model ContentVersionMedia {
+  contentVersionId String   @map("content_version_id")
+  mediaAssetId     String   @map("media_asset_id")
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  contentVersion ContentVersion @relation(fields: [contentVersionId], references: [id], onDelete: Cascade)
+  mediaAsset     MediaAsset     @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@id([contentVersionId, mediaAssetId])
+  @@index([mediaAssetId])
+  @@index([contentVersionId, sortOrder])
+  @@map("content_version_media")
+}
+
+model PlatformAccount {
+  id                    String             @id @default(uuid())
+  organizationId        String             @map("organization_id")
+  platform              Platform
+  displayName           String             @map("display_name")
+  username              String?
+  providerAccountId     String?            @map("provider_account_id")
+  avatarUrl             String?            @map("avatar_url")
+  accessType            PlatformAccessType @map("access_type")
+  authStatus            PlatformAuthStatus @default(active) @map("auth_status")
+  tokenEncrypted        String?            @map("token_encrypted") @db.Text
+  refreshTokenEncrypted String?            @map("refresh_token_encrypted") @db.Text
+  tokenExpiresAt        DateTime?          @map("token_expires_at")
+  settings              Json?
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  deletedAt             DateTime?          @map("deleted_at")
+
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  authLogs       PlatformAccountAuthLog[]
+  publishTargets PublishTarget[]
+
+  @@index([organizationId, platform])
+  @@index([organizationId, authStatus])
+  @@index([platform, providerAccountId])
+  @@index([deletedAt])
+  @@map("platform_accounts")
+}
+
+model PlatformAccountAuthLog {
+  id                String   @id @default(uuid())
+  platformAccountId String   @map("platform_account_id")
+  eventType         String   @map("event_type")
+  status            String
+  message           String?
+  detail            Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  platformAccount PlatformAccount @relation(fields: [platformAccountId], references: [id], onDelete: Cascade)
+
+  @@index([platformAccountId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("platform_account_auth_logs")
+}
+
+model PublishTask {
+  id             String            @id @default(uuid())
+  organizationId String            @map("organization_id")
+  contentItemId  String            @map("content_item_id")
+  createdBy      String            @map("created_by")
+  status         PublishTaskStatus @default(draft)
+  scheduledAt    DateTime?         @map("scheduled_at")
+  startedAt      DateTime?         @map("started_at")
+  finishedAt     DateTime?         @map("finished_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  deletedAt      DateTime?         @map("deleted_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contentItem  ContentItem     @relation(fields: [contentItemId], references: [id])
+  creator      User            @relation("PublishTaskCreatedBy", fields: [createdBy], references: [id])
+  targets      PublishTarget[]
+
+  @@index([organizationId, scheduledAt])
+  @@index([organizationId, status])
+  @@index([contentItemId])
+  @@index([createdBy, createdAt])
+  @@index([deletedAt])
+  @@map("publish_tasks")
+}
+
+model PublishTarget {
+  id                String              @id @default(uuid())
+  publishTaskId     String              @map("publish_task_id")
+  platformAccountId String              @map("platform_account_id")
+  contentVersionId  String              @map("content_version_id")
+  platform          Platform
+  status            PublishTargetStatus @default(pending)
+  scheduledAt       DateTime?           @map("scheduled_at")
+  startedAt         DateTime?           @map("started_at")
+  finishedAt        DateTime?           @map("finished_at")
+  retryCount        Int                 @default(0) @map("retry_count")
+  lastErrorType     PublishErrorType?   @map("last_error_type")
+  idempotencyKey    String              @unique @map("idempotency_key")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  publishTask       PublishTask               @relation(fields: [publishTaskId], references: [id], onDelete: Cascade)
+  platformAccount   PlatformAccount           @relation(fields: [platformAccountId], references: [id])
+  contentVersion    ContentVersion            @relation(fields: [contentVersionId], references: [id])
+  result            PublishResult?
+  errors            PublishError[]
+  manualInstruction ManualPublishInstruction?
+
+  @@index([publishTaskId])
+  @@index([status, scheduledAt])
+  @@index([platformAccountId, status])
+  @@index([platform, status])
+  @@map("publish_targets")
+}
+
+model PublishResult {
+  id              String    @id @default(uuid())
+  publishTargetId String    @unique @map("publish_target_id")
+  providerPostId  String?   @map("provider_post_id")
+  externalUrl     String?   @map("external_url")
+  responseData    Json?     @map("response_data")
+  publishedAt     DateTime? @map("published_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  publishTarget PublishTarget   @relation(fields: [publishTargetId], references: [id], onDelete: Cascade)
+  metrics       PublishMetric[]
+
+  @@index([providerPostId])
+  @@index([publishedAt])
+  @@map("publish_results")
+}
+
+model PublishError {
+  id              String           @id @default(uuid())
+  publishTargetId String           @map("publish_target_id")
+  errorType       PublishErrorType @map("error_type")
+  errorMessage    String           @map("error_message")
+  errorDetail     Json?            @map("error_detail")
+  retryable       Boolean          @default(false)
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  publishTarget PublishTarget @relation(fields: [publishTargetId], references: [id], onDelete: Cascade)
+
+  @@index([publishTargetId, createdAt])
+  @@index([errorType, createdAt])
+  @@map("publish_errors")
+}
+
+model ManualPublishInstruction {
+  id              String   @id @default(uuid())
+  publishTargetId String   @unique @map("publish_target_id")
+  platform        Platform
+  accountSnapshot Json     @map("account_snapshot")
+  contentSnapshot Json     @map("content_snapshot")
+  mediaSnapshot   Json?    @map("media_snapshot")
+  instruction     Json
+  checklist       Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  publishTarget PublishTarget @relation(fields: [publishTargetId], references: [id], onDelete: Cascade)
+
+  @@index([platform, createdAt])
+  @@map("manual_publish_instructions")
+}
+
+model AiGenerationLog {
+  id               String      @id @default(uuid())
+  organizationId   String      @map("organization_id")
+  contentItemId    String?     @map("content_item_id")
+  contentVersionId String?     @map("content_version_id")
+  provider         String
+  model            String
+  prompt           String      @db.Text
+  input            Json
+  output           Json?
+  status           AiJobStatus @default(pending)
+  errorMessage     String?     @map("error_message")
+  createdBy        String      @map("created_by")
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contentItem    ContentItem?    @relation(fields: [contentItemId], references: [id])
+  contentVersion ContentVersion? @relation(fields: [contentVersionId], references: [id])
+  creator        User            @relation("AiGenerationCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([contentItemId, createdAt])
+  @@index([contentVersionId, createdAt])
+  @@index([status, createdAt])
+  @@map("ai_generation_logs")
+}
+
+model PlatformStyleTemplate {
+  id             String      @id @default(uuid())
+  platform       Platform
+  contentType    ContentType @map("content_type")
+  name           String
+  promptTemplate String      @map("prompt_template") @db.Text
+  rules          Json?
+  examples       Json?
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  @@index([platform, contentType, active])
+  @@map("platform_style_templates")
+}
+
+model PublishMetric {
+  id              String       @id @default(uuid())
+  publishResultId String       @map("publish_result_id")
+  source          MetricSource @default(manual)
+  views           Int?
+  likes           Int?
+  comments        Int?
+  favorites       Int?
+  shares          Int?
+  rawData         Json?        @map("raw_data")
+  recordedAt      DateTime     @map("recorded_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  publishResult PublishResult @relation(fields: [publishResultId], references: [id], onDelete: Cascade)
+
+  @@index([publishResultId, recordedAt])
+  @@index([source, recordedAt])
+  @@map("publish_metrics")
+}
