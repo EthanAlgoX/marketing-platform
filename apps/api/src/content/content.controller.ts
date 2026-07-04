@@ -19,23 +19,37 @@ export class ContentController {
     const user = resolveUserId(actingUserId);
     return this.contentService.create({
       ...body,
-      createdBy: body.createdBy ?? user.userId,
+      createdBy: user.userId,
     });
   }
 
   @Get()
-  list(@Query("organizationId") organizationId?: string) {
-    return this.contentService.findAll({ organizationId });
+  list(
+    @Headers(USER_ID_HEADER) actingUserId: string,
+    @Query("organizationId") organizationId?: string,
+  ) {
+    const user = resolveUserId(actingUserId);
+    return this.contentService.findAll({ organizationId, actorUserId: user.userId });
   }
 
   @Get(":id")
-  get(@Param("id") id: string, @Query("organizationId") organizationId?: string) {
-    return this.contentService.findById(id, organizationId);
+  get(
+    @Param("id") id: string,
+    @Headers(USER_ID_HEADER) actingUserId: string,
+    @Query("organizationId") organizationId?: string,
+  ) {
+    const user = resolveUserId(actingUserId);
+    return this.contentService.findById(id, { organizationId, actorUserId: user.userId });
   }
 
   @Patch(":id")
-  update(@Param("id") id: string, @Body() body: UpdateContentItemDto) {
-    return this.contentService.update(id, body);
+  update(
+    @Param("id") id: string,
+    @Headers(USER_ID_HEADER) actingUserId: string,
+    @Body() body: UpdateContentItemDto,
+  ) {
+    const user = resolveUserId(actingUserId);
+    return this.contentService.update(id, body, user.userId);
   }
 
   @Post(":id/versions")
@@ -49,6 +63,7 @@ export class ContentController {
       ...body,
       contentItemId,
       editedBy: user.userId,
+      actorUserId: user.userId,
     });
   }
 }

@@ -1,9 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import {
-  ContentItemStatus,
-  ContentType,
-  Platform,
-} from "../../../packages/database/src";
+import { ContentType, Platform, OrganizationMemberStatus } from "../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   CreateContentItemDto,
@@ -16,12 +12,23 @@ export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
 
   create(dto: CreateContentItemDto) {
-    const { organizationId, title, createdBy, sourceContent, productInfo, targetAudience, marketingGoal } =
-      dto;
+    const {
+      organizationId,
+      title,
+      actorUserId,
+      sourceContent,
+      productInfo,
+      targetAudience,
+      marketingGoal,
+    } = dto;
 
-    if (!organizationId || !title || !createdBy) {
-      throw new HttpException("organizationId, title, createdBy are required", HttpStatus.BAD_REQUEST);
+    if (!organizationId || !title || !actorUserId) {
+      throw new HttpException("organizationId, title, actorUserId are required", HttpStatus.BAD_REQUEST);
     }
+
+    await this.assertMembership(organizationId, actorUserId);
+
+    const createdBy = actorUserId;
 
     return this.prisma.contentItem.create({
       data: {
@@ -36,9 +43,37 @@ export class ContentService {
     });
   }
 
-  findAll({ organizationId }: { organizationId?: string }) {
+  async findAll({
+    organizationId,
+    actorUserId,
+  }: {
+    organizationId?: string;
+    actorUserId: string;
+  }) {
+    if (!actorUserId) {
+      throw new HttpException("actorUserId is required", HttpStatus.BAD_REQUEST);
+    }
+
+    if (organizationId) {
+      await this.assertMembership(organizationId, actorUserId);
+    } else {
+      const itemIds = await this.prisma.organizationMember.findMany({
+        where: {
+          userId: actorUserId,
+          status: OrganizationMemberStatus.active,
+        },
+        select: { organizationId: true },
+      });
+
+      if (itemIds.length === 0) {
+        return [];
+      }
+    }
+
     return this.prisma.contentItem.findMany({
-      where: organizationId ? { organizationId } : undefined,
+      where: organizationId
+        ? { organizationId }
+        : { organizationId: { in: await this.actorOrganizationIds(actorUserId) } },
       orderBy: { createdAt: "desc" },
       include: {
         versions: {
@@ -50,7 +85,21 @@ export class ContentService {
     });
   }
 
-  findById(id: string, organizationId?: string) {
+  async findById(
+    id: string,
+    { organizationId, actorUserId }: { organizationId?: string; actorUserId: string },
+  ) {
+    const item = await this.prisma.contentItem.findFirst({
+      where: organizationId ? { id, organizationId } : { id },
+      select: { organizationId: true },
+    });
+
+    if (!item) {
+      throw new HttpException("content item not found", HttpStatus.NOT_FOUND);
+    }
+
+    await this.assertMembership(item.organizationId, actorUserId);
+
     return this.prisma.contentItem.findFirst({
       where: organizationId ? { id, organizationId } : { id },
       include: {
@@ -65,11 +114,13 @@ export class ContentService {
     });
   }
 
-  async update(id: string, dto: UpdateContentItemDto) {
+  async update(id: string, dto: UpdateContentItemDto, actorUserId: string) {
     const existing = await this.prisma.contentItem.findUnique({ where: { id } });
     if (!existing) {
       throw new HttpException("content item not found", HttpStatus.NOT_FOUND);
     }
+
+    await this.assertMembership(existing.organizationId, actorUserId);
 
     return this.prisma.contentItem.update({
       where: { id },
@@ -84,12 +135,37 @@ export class ContentService {
     });
   }
 
-  createVersion(dto: CreateContentVersionDto & { contentItemId: string }) {
-    const { contentItemId, platform, contentType, editedBy, title, body, tags, topics, settings } =
+  async createVersion(dto: CreateContentVersionDto & { contentItemId: string }) {
+    const {
+      contentItemId,
+      platform,
+      contentType,
+      editedBy,
+      actorUserId,
+      title,
+      body,
+      tags,
+      topics,
+      settings,
+    } =
       dto;
-    if (!contentItemId || !platform || !contentType) {
-      throw new HttpException("contentItemId, platform, contentType are required", HttpStatus.BAD_REQUEST);
+    if (!contentItemId || !platform || !contentType || !actorUserId) {
+      throw new HttpException(
+        "contentItemId, platform, contentType, actorUserId are required",
+        HttpStatus.BAD_REQUEST,
+      );
     }
+
+    const item = await this.prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { organizationId: true },
+    });
+
+    if (!item) {
+      throw new HttpException("content item not found", HttpStatus.NOT_FOUND);
+    }
+
+    await this.assertMembership(item.organizationId, actorUserId);
 
     if (!Object.values(ContentType).includes(contentType)) {
       throw new HttpException("invalid contentType", HttpStatus.BAD_REQUEST);
@@ -113,5 +189,32 @@ export class ContentService {
         editedBy,
       },
     });
+  }
+
+  private async actorOrganizationIds(actorUserId: string) {
+    const memberships = await this.prisma.organizationMember.findMany({
+      where: {
+        userId: actorUserId,
+        status: OrganizationMemberStatus.active,
+      },
+      select: { organizationId: true },
+    });
+
+    return memberships.map((membership) => membership.organizationId);
+  }
+
+  private async assertMembership(organizationId: string, actorUserId: string) {
+    const member = await this.prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId: actorUserId,
+        },
+      },
+    });
+
+    if (!member || member.status !== OrganizationMemberStatus.active) {
+      throw new HttpException("acting user is not an active member of organization", HttpStatus.FORBIDDEN);
+    }
   }
 }

@@ -8,6 +8,7 @@ export interface CreateContentItemDto {
   targetAudience?: string;
   marketingGoal?: string;
   createdBy?: string;
+  actorUserId?: string;
 }
 
 export interface UpdateContentItemDto {
@@ -22,6 +23,7 @@ export interface UpdateContentItemDto {
 export interface CreateContentVersionDto {
   platform: Platform;
   contentType: ContentType;
+  actorUserId?: string;
   title?: string;
   body?: string;
   editedBy?: string;
