@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { CurrentUserId } from "../common/access";
 import { RequireUserIdGuard } from "../common/require-user-id.guard";
+import { OrganizationAccess, OrganizationAccessGuard } from "../common/organization-access.guard";
 import { AddMemberDto, CreateOrganizationDto } from "./organizations.dto";
 import { OrganizationsService } from "./organizations.service";
 
@@ -19,7 +20,7 @@ export class OrganizationsController {
   }
 
   @Post(":organizationId/members")
-  @UseGuards(RequireUserIdGuard)
+  @UseGuards(RequireUserIdGuard, OrganizationAccessGuard, OrganizationAccess({ role: "admin", organizationIdParam: "organizationId" }))
   addMember(
     @Param("organizationId") organizationId: string,
     @CurrentUserId() actingUserId: string,
@@ -33,6 +34,7 @@ export class OrganizationsController {
   }
 
   @Get(":organizationId/members")
+  @UseGuards(RequireUserIdGuard, OrganizationAccessGuard, OrganizationAccess({ role: "member", organizationIdParam: "organizationId" }))
   members(@Param("organizationId") organizationId: string) {
     return this.organizationsService.members(organizationId);
   }
