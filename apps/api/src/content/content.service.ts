@@ -1,11 +1,12 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { ContentType, Platform, OrganizationMemberStatus } from "../../../packages/database/src";
+import { ContentType, Platform } from "../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   CreateContentItemDto,
   CreateContentVersionDto,
   UpdateContentItemDto,
 } from "./content.dto";
+import { assertActiveOrganizationMember, listActorOrganizationIds } from "../common/organization-access";
 
 @Injectable()
 export class ContentService {
@@ -26,7 +27,7 @@ export class ContentService {
       throw new HttpException("organizationId, title, actorUserId are required", HttpStatus.BAD_REQUEST);
     }
 
-    await this.assertMembership(organizationId, actorUserId);
+    await assertActiveOrganizationMember(this.prisma, organizationId, actorUserId);
 
     const createdBy = actorUserId;
 
@@ -57,23 +58,16 @@ export class ContentService {
     if (organizationId) {
       await this.assertMembership(organizationId, actorUserId);
     } else {
-      const itemIds = await this.prisma.organizationMember.findMany({
-        where: {
-          userId: actorUserId,
-          status: OrganizationMemberStatus.active,
-        },
-        select: { organizationId: true },
-      });
-
-      if (itemIds.length === 0) {
-        return [];
-      }
+        const membershipOrganizationIds = await listActorOrganizationIds(this.prisma, actorUserId);
+        if (membershipOrganizationIds.length === 0) {
+          return [];
+        }
     }
 
     return this.prisma.contentItem.findMany({
       where: organizationId
         ? { organizationId }
-        : { organizationId: { in: await this.actorOrganizationIds(actorUserId) } },
+        : { organizationId: { in: await listActorOrganizationIds(this.prisma, actorUserId) } },
       orderBy: { createdAt: "desc" },
       include: {
         versions: {
@@ -98,7 +92,7 @@ export class ContentService {
       throw new HttpException("content item not found", HttpStatus.NOT_FOUND);
     }
 
-    await this.assertMembership(item.organizationId, actorUserId);
+    await assertActiveOrganizationMember(this.prisma, item.organizationId, actorUserId);
 
     return this.prisma.contentItem.findFirst({
       where: organizationId ? { id, organizationId } : { id },
@@ -120,7 +114,7 @@ export class ContentService {
       throw new HttpException("content item not found", HttpStatus.NOT_FOUND);
     }
 
-    await this.assertMembership(existing.organizationId, actorUserId);
+    await assertActiveOrganizationMember(this.prisma, existing.organizationId, actorUserId);
 
     return this.prisma.contentItem.update({
       where: { id },
@@ -165,7 +159,7 @@ export class ContentService {
       throw new HttpException("content item not found", HttpStatus.NOT_FOUND);
     }
 
-    await this.assertMembership(item.organizationId, actorUserId);
+    await assertActiveOrganizationMember(this.prisma, item.organizationId, actorUserId);
 
     if (!Object.values(ContentType).includes(contentType)) {
       throw new HttpException("invalid contentType", HttpStatus.BAD_REQUEST);
@@ -191,30 +185,4 @@ export class ContentService {
     });
   }
 
-  private async actorOrganizationIds(actorUserId: string) {
-    const memberships = await this.prisma.organizationMember.findMany({
-      where: {
-        userId: actorUserId,
-        status: OrganizationMemberStatus.active,
-      },
-      select: { organizationId: true },
-    });
-
-    return memberships.map((membership) => membership.organizationId);
-  }
-
-  private async assertMembership(organizationId: string, actorUserId: string) {
-    const member = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId,
-          userId: actorUserId,
-        },
-      },
-    });
-
-    if (!member || member.status !== OrganizationMemberStatus.active) {
-      throw new HttpException("acting user is not an active member of organization", HttpStatus.FORBIDDEN);
-    }
-  }
 }

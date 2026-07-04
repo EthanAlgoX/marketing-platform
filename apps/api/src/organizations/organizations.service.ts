@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { OrganizationMemberStatus, OrganizationRole } from "../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
-import { canManageOrganizationMembers } from "../common/access";
+import { assertOrganizationManager } from "../common/organization-access";
 import { CreateOrganizationDto } from "./organizations.dto";
 
 @Injectable()
@@ -74,22 +74,7 @@ export class OrganizationsService {
     userId: string;
     role?: OrganizationRole;
   }) {
-    const member = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId,
-          userId: actingUserId,
-        },
-      },
-    });
-
-    if (!member) {
-      throw new HttpException("acting user not member of organization", HttpStatus.NOT_FOUND);
-    }
-
-    if (!canManageOrganizationMembers(member.role)) {
-      throw new HttpException("insufficient permissions", HttpStatus.FORBIDDEN);
-    }
+    await assertOrganizationManager(this.prisma, organizationId, actingUserId);
 
     return this.prisma.organizationMember.create({
       data: {
