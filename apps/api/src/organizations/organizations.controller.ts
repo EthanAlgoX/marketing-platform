@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Headers, Param, Post } from "@nestjs/common";
-import { USER_ID_HEADER, resolveUserId } from "../common/access";
+import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { CurrentUserId } from "../common/access";
+import { RequireUserIdGuard } from "../common/require-user-id.guard";
 import { AddMemberDto, CreateOrganizationDto } from "./organizations.dto";
 import { OrganizationsService } from "./organizations.service";
 
@@ -18,15 +19,14 @@ export class OrganizationsController {
   }
 
   @Post(":organizationId/members")
+  @UseGuards(RequireUserIdGuard)
   addMember(
     @Param("organizationId") organizationId: string,
-    @Headers(USER_ID_HEADER) actingUserId: string,
+    @CurrentUserId() actingUserId: string,
     @Body() body: AddMemberDto,
   ) {
-    const user = resolveUserId(actingUserId);
-
     return this.organizationsService.addMember({
-      actingUserId: user.userId,
+      actingUserId,
       organizationId,
       ...body,
     });

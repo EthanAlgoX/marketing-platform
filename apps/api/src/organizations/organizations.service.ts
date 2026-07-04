@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { OrganizationRole } from "../../../packages/database/src";
+import { OrganizationMemberStatus, OrganizationRole } from "../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
 import { canManageOrganizationMembers } from "../common/access";
 import { CreateOrganizationDto } from "./organizations.dto";
@@ -103,7 +103,7 @@ export class OrganizationsService {
 
   members(organizationId: string) {
     return this.prisma.organizationMember.findMany({
-      where: { organizationId, status: "active" },
+      where: { organizationId, status: OrganizationMemberStatus.active },
       include: {
         user: {
           select: {

@@ -11,7 +11,7 @@ import {
 export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateContentItemDto) {
+  create(dto: CreateContentItemDto & { actorUserId: string }) {
     const {
       organizationId,
       title,
@@ -135,7 +135,7 @@ export class ContentService {
     });
   }
 
-  async createVersion(dto: CreateContentVersionDto & { contentItemId: string }) {
+  async createVersion(dto: CreateContentVersionDto & { contentItemId: string; actorUserId: string }) {
     const {
       contentItemId,
       platform,

@@ -1,5 +1,6 @@
-import { Headers, Controller, Post, Get, Param, Body, Query, Patch } from "@nestjs/common";
-import { USER_ID_HEADER, resolveUserId } from "../common/access";
+import { Controller, Post, Get, Param, Body, Query, Patch, UseGuards } from "@nestjs/common";
+import { CurrentUserId } from "../common/access";
+import { RequireUserIdGuard } from "../common/require-user-id.guard";
 import {
   CreateContentItemDto,
   CreateContentVersionDto,
@@ -12,58 +13,44 @@ export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 
   @Post()
-  create(
-    @Headers(USER_ID_HEADER) actingUserId: string,
-    @Body() body: CreateContentItemDto,
-  ) {
-    const user = resolveUserId(actingUserId);
+  @UseGuards(RequireUserIdGuard)
+  create(@CurrentUserId() userId: string, @Body() body: CreateContentItemDto) {
     return this.contentService.create({
       ...body,
-      createdBy: user.userId,
+      actorUserId: userId,
     });
   }
 
   @Get()
-  list(
-    @Headers(USER_ID_HEADER) actingUserId: string,
-    @Query("organizationId") organizationId?: string,
-  ) {
-    const user = resolveUserId(actingUserId);
-    return this.contentService.findAll({ organizationId, actorUserId: user.userId });
+  @UseGuards(RequireUserIdGuard)
+  list(@CurrentUserId() userId: string, @Query("organizationId") organizationId?: string) {
+    return this.contentService.findAll({ organizationId, actorUserId: userId });
   }
 
   @Get(":id")
+  @UseGuards(RequireUserIdGuard)
   get(
     @Param("id") id: string,
-    @Headers(USER_ID_HEADER) actingUserId: string,
+    @CurrentUserId() userId: string,
     @Query("organizationId") organizationId?: string,
   ) {
-    const user = resolveUserId(actingUserId);
-    return this.contentService.findById(id, { organizationId, actorUserId: user.userId });
+    return this.contentService.findById(id, { organizationId, actorUserId: userId });
   }
 
   @Patch(":id")
-  update(
-    @Param("id") id: string,
-    @Headers(USER_ID_HEADER) actingUserId: string,
-    @Body() body: UpdateContentItemDto,
-  ) {
-    const user = resolveUserId(actingUserId);
-    return this.contentService.update(id, body, user.userId);
+  @UseGuards(RequireUserIdGuard)
+  update(@Param("id") id: string, @CurrentUserId() userId: string, @Body() body: UpdateContentItemDto) {
+    return this.contentService.update(id, body, userId);
   }
 
   @Post(":id/versions")
-  createVersion(
-    @Param("id") contentItemId: string,
-    @Headers(USER_ID_HEADER) actingUserId: string,
-    @Body() body: CreateContentVersionDto,
-  ) {
-    const user = resolveUserId(actingUserId);
+  @UseGuards(RequireUserIdGuard)
+  createVersion(@Param("id") contentItemId: string, @CurrentUserId() userId: string, @Body() body: CreateContentVersionDto) {
     return this.contentService.createVersion({
       ...body,
       contentItemId,
-      editedBy: user.userId,
-      actorUserId: user.userId,
+      editedBy: userId,
+      actorUserId: userId,
     });
   }
 }
