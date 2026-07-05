@@ -2,8 +2,8 @@
   "name": "@marketing-platform/providers",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "main": "src/index.ts",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "lint": "eslint .",
