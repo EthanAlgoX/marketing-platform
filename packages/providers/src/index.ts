@@ -980,14 +980,30 @@ class XiaohongshuApiProvider extends BaseProvider {
   }
 
   private toFullGatewayUrl(base: string, fallbackPath: string) {
-    const url = base.trim().replace(/\/$/, "");
-    if (!url) {
+    const normalizedBase = base.trim().replace(/\/+$/, "");
+    if (!normalizedBase) {
       return "";
     }
-    if (url.includes("://")) {
-      return `${url}${url.endsWith("/") ? "" : "/"}${url.endsWith(fallbackPath) ? "" : fallbackPath.replace(/^\//, "")}`;
+    const normalizedPath = `/${fallbackPath.replace(/^\/+/, "")}`;
+    if (!normalizedBase.includes("://")) {
+      return `${normalizedBase}${normalizedPath}`;
     }
-    return `${url}${url.endsWith("/") ? "" : "/"}${fallbackPath.replace(/^\//, "")}`;
+
+    try {
+      const parsed = new URL(normalizedBase);
+      const basePath = parsed.pathname.replace(/\/+$/, "");
+      if (!basePath || basePath === "/") {
+        parsed.pathname = normalizedPath;
+        return parsed.toString().replace(/\/$/, "");
+      }
+      if (basePath === normalizedPath || normalizedPath.startsWith(`${basePath}/`)) {
+        parsed.pathname = normalizedPath;
+        return parsed.toString().replace(/\/$/, "");
+      }
+      return normalizedBase;
+    } catch {
+      return `${normalizedBase}${normalizedPath}`;
+    }
   }
 
   private extractLastJson(text: string) {
@@ -1686,14 +1702,30 @@ class ZhihuApiProvider extends BaseProvider {
   }
 
   private toFullGatewayUrl(base: string, fallbackPath: string) {
-    const url = base.trim().replace(/\/$/, "");
-    if (!url) {
+    const normalizedBase = base.trim().replace(/\/+$/, "");
+    if (!normalizedBase) {
       return "";
     }
-    if (url.includes("://")) {
-      return `${url}${url.endsWith("/") ? "" : "/"}${url.endsWith(fallbackPath) ? "" : fallbackPath.replace(/^\//, "")}`;
+    const normalizedPath = `/${fallbackPath.replace(/^\/+/, "")}`;
+    if (!normalizedBase.includes("://")) {
+      return `${normalizedBase}${normalizedPath}`;
     }
-    return `${url}${url.endsWith("/") ? "" : "/"}${fallbackPath.replace(/^\//, "")}`;
+
+    try {
+      const parsed = new URL(normalizedBase);
+      const basePath = parsed.pathname.replace(/\/+$/, "");
+      if (!basePath || basePath === "/") {
+        parsed.pathname = normalizedPath;
+        return parsed.toString().replace(/\/$/, "");
+      }
+      if (basePath === normalizedPath || normalizedPath.startsWith(`${basePath}/`)) {
+        parsed.pathname = normalizedPath;
+        return parsed.toString().replace(/\/$/, "");
+      }
+      return normalizedBase;
+    } catch {
+      return `${normalizedBase}${normalizedPath}`;
+    }
   }
 }
 
@@ -2442,14 +2474,30 @@ class WechatApiProvider extends BaseProvider {
   }
 
   private toFullGatewayUrl(base: string, fallbackPath: string) {
-    const url = base.trim().replace(/\/$/, "");
-    if (!url) {
+    const normalizedBase = base.trim().replace(/\/+$/, "");
+    if (!normalizedBase) {
       return "";
     }
-    if (url.includes("://")) {
-      return `${url}${url.endsWith("/") ? "" : "/"}${url.endsWith(fallbackPath) ? "" : fallbackPath.replace(/^\//, "")}`;
+    const normalizedPath = `/${fallbackPath.replace(/^\/+/, "")}`;
+    if (!normalizedBase.includes("://")) {
+      return `${normalizedBase}${normalizedPath}`;
     }
-    return `${url}${url.endsWith("/") ? "" : "/"}${fallbackPath.replace(/^\//, "")}`;
+
+    try {
+      const parsed = new URL(normalizedBase);
+      const basePath = parsed.pathname.replace(/\/+$/, "");
+      if (!basePath || basePath === "/") {
+        parsed.pathname = normalizedPath;
+        return parsed.toString().replace(/\/$/, "");
+      }
+      if (basePath === normalizedPath || normalizedPath.startsWith(`${basePath}/`)) {
+        parsed.pathname = normalizedPath;
+        return parsed.toString().replace(/\/$/, "");
+      }
+      return normalizedBase;
+    } catch {
+      return `${normalizedBase}${normalizedPath}`;
+    }
   }
 
   private parseJson(text: string): unknown | null {

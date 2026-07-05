@@ -1,9 +1,10 @@
-import { Controller, Post, Get, Param, Body, Query, Patch, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { CurrentUserId } from "../common/access";
 import { RequireUserIdGuard } from "../common/require-user-id.guard";
 import {
   CreateContentItemDto,
   CreateContentVersionDto,
+  GenerateVersionsDto,
   UpdateContentItemDto,
 } from "./content.dto";
 import { ContentService } from "./content.service";
@@ -11,7 +12,7 @@ import { ContentService } from "./content.service";
 @Controller("content")
 @UseGuards(RequireUserIdGuard)
 export class ContentController {
-  constructor(private readonly contentService: ContentService) {}
+  constructor(@Inject(ContentService) private readonly contentService: ContentService) {}
 
   @Post()
   create(@CurrentUserId() userId: string, @Body() body: CreateContentItemDto) {
@@ -46,6 +47,19 @@ export class ContentController {
       ...body,
       contentItemId,
       editedBy: userId,
+      actorUserId: userId,
+    });
+  }
+
+  @Post(":id/versions/ai")
+  generateVersions(
+    @Param("id") contentItemId: string,
+    @CurrentUserId() userId: string,
+    @Body() body: GenerateVersionsDto,
+  ) {
+    return this.contentService.generateVersions({
+      ...body,
+      contentItemId,
       actorUserId: userId,
     });
   }

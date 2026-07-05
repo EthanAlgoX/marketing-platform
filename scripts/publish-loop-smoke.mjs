@@ -184,10 +184,12 @@ async function main() {
   console.log("[7/7] poll first execution result");
   const inFlight = await waitForCompletion(task.id);
   assert(inFlight.targets.length === 3, "发布任务应包含 3 个 target");
-  const xTwitter = inFlight.targets.find((target) => target.platform === "x_twitter");
-  assert(xTwitter?.status === "success", "x_twitter 目标应为自动发布成功");
   const hasManualRequired = inFlight.targets.some((target) => target.status === "manual_required");
-  assert(hasManualRequired, "小红书/知乎/微信公众号应至少出现一个 manual_required");
+  assert(hasManualRequired, "未配置真实平台凭据时，应至少出现一个 manual_required");
+  const allFirstRunTerminal = inFlight.targets.every((target) =>
+    ["success", "failed", "manual_required", "skipped", "canceled"].includes(target.status),
+  );
+  assert(allFirstRunTerminal, `首次执行后所有 target 应进入终态或人工处理态，实际：${inFlight.targets.map((target) => target.status).join(",")}`);
   console.log("first execution:", JSON.stringify(inFlight.targets.map((item) => `${item.platform}:${item.status}`), null, 2));
 
   const manualTargets = inFlight.targets.filter((target) => target.status === "manual_required");

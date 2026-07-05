@@ -28,3 +28,14 @@ export interface CreateContentVersionDto {
   topics?: unknown;
   settings?: unknown;
 }
+
+export interface GenerateSingleVersionDto {
+  platform: Platform;
+  contentType: ContentType;
+  title?: string;
+}
+
+export interface GenerateVersionsDto {
+  organizationId: string;
+  versions: GenerateSingleVersionDto[];
+}

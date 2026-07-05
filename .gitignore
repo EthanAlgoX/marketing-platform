@@ -9,6 +9,7 @@ dist/
 build/
 .next/
 coverage/
+.playwright-cli/
 
 *.log
 .DS_Store

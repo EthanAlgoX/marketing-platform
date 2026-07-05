@@ -70,6 +70,7 @@ enum PublishTaskStatus {
   draft
   scheduled
   processing
+  waiting_manual
   partial_success
   success
   failed

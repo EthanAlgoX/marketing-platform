@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
 import { CurrentUserId } from "../common/access";
 import { RequireUserIdGuard } from "../common/require-user-id.guard";
 import { OrganizationAccess, OrganizationAccessGuard } from "../common/organization-access.guard";
@@ -7,7 +7,7 @@ import { OrganizationsService } from "./organizations.service";
 
 @Controller("organizations")
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(@Inject(OrganizationsService) private readonly organizationsService: OrganizationsService) {}
 
   @Post()
   create(@Body() body: CreateOrganizationDto) {
@@ -20,7 +20,8 @@ export class OrganizationsController {
   }
 
   @Post(":organizationId/members")
-  @UseGuards(RequireUserIdGuard, OrganizationAccessGuard, OrganizationAccess({ role: "admin", organizationIdParam: "organizationId" }))
+  @UseGuards(RequireUserIdGuard, OrganizationAccessGuard)
+  @OrganizationAccess({ role: "admin", organizationIdParam: "organizationId" })
   addMember(
     @Param("organizationId") organizationId: string,
     @CurrentUserId() actingUserId: string,
@@ -34,7 +35,8 @@ export class OrganizationsController {
   }
 
   @Get(":organizationId/members")
-  @UseGuards(RequireUserIdGuard, OrganizationAccessGuard, OrganizationAccess({ role: "member", organizationIdParam: "organizationId" }))
+  @UseGuards(RequireUserIdGuard, OrganizationAccessGuard)
+  @OrganizationAccess({ role: "member", organizationIdParam: "organizationId" })
   members(@Param("organizationId") organizationId: string) {
     return this.organizationsService.members(organizationId);
   }

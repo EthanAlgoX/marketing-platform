@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { OrganizationMemberStatus, OrganizationRole } from "../../../../packages/database/src";
 import { PrismaService } from "../prisma/prisma.service";
 import { assertOrganizationManager } from "../common/organization-access";
@@ -6,7 +6,7 @@ import { CreateOrganizationDto } from "./organizations.dto";
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async create(dto: CreateOrganizationDto) {
     const data: { name: string } = {

@@ -1,5 +1,7 @@
 import path from "node:path";
-import { getProvider } from "../../packages/providers/dist/index.js";
+import providers from "../../packages/providers/dist/index.js";
+
+const { getProvider } = providers;
 
 const provider = getProvider("xiaohongshu");
 

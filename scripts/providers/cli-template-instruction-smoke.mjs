@@ -1,5 +1,7 @@
 import path from "node:path";
-import { getProvider } from "../../packages/providers/dist/index.js";
+import providerModule from "../../packages/providers/dist/index.js";
+
+const { getProvider } = providerModule;
 
 const MOCK_BIN_DIR = path.join(process.cwd(), "scripts", "providers", "mock-bin");
 const cliCommand = (name) => path.join(MOCK_BIN_DIR, name);

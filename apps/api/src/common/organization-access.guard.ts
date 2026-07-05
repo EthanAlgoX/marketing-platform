@@ -1,4 +1,4 @@
-import { CanActivate, createParamDecorator, ExecutionContext, Injectable, SetMetadata, UnauthorizedException } from "@nestjs/common";
+import { CanActivate, createParamDecorator, ExecutionContext, Inject, Injectable, SetMetadata, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { assertActiveOrganizationMember, assertOrganizationManager } from "./organization-access";
 import { PrismaService } from "../prisma/prisma.service";
@@ -24,7 +24,9 @@ export const OrganizationAccessUserId = createParamDecorator((_: unknown, contex
 @Injectable()
 export class OrganizationAccessGuard implements CanActivate {
   constructor(
+    @Inject(Reflector)
     private readonly reflector: Reflector,
+    @Inject(PrismaService)
     private readonly prisma: PrismaService,
   ) {}
 
